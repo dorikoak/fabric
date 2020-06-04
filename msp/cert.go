@@ -18,51 +18,53 @@ package msp
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
-	"encoding/pem"
+	"crypto/ecdsa"	// 타원 곡선 알고리즘이 구현된 패키지,
+	"crypto/x509"	// x.509로 인코딩된 키와 인증서를 분석하는 패키지
+	// CRL(인증서 폐기 목록), OCSP (온라인 인증서 상태 프로토콜)
+	"crypto/x509/pkix"	// CRL, OCSP의 ASN.1 구문 분석 및 직렬화에 사용되는 구조가 포함된 패키지
+	// 인증서 인코딩 방식
+	"encoding/asn1"	// 추상 구문 기법?
+	"encoding/pem"	// 인증서 파일 포멧
 	"fmt"
 	"math/big"
 	"time"
 
-	"github.com/hyperledger/fabric/bccsp/utils"
+	"github.com/hyperledger/fabric/bccsp/utils"	// 타원 곡선 알고리즘을 통한 서명 구현
 	"github.com/pkg/errors"
 )
 
-type validity struct {
+type validity struct {	 
 	NotBefore, NotAfter time.Time
 }
 
-type publicKeyInfo struct {
-	Raw       asn1.RawContent
-	Algorithm pkix.AlgorithmIdentifier
-	PublicKey asn1.BitString
+type publicKeyInfo struct { 	// 공개키 정보
+	Raw       asn1.RawContent	// 바이트 배열
+	Algorithm pkix.AlgorithmIdentifier	
+	PublicKey asn1.BitString	// 비트 문자열 변수 선언
 }
 
-type certificate struct {
-	Raw                asn1.RawContent
-	TBSCertificate     tbsCertificate
-	SignatureAlgorithm pkix.AlgorithmIdentifier
-	SignatureValue     asn1.BitString
+type certificate struct {		// 인증서
+	Raw                asn1.RawContent	// 바이트 배열	
+	TBSCertificate     tbsCertificate	// tbsCertificate 객체 생성
+	SignatureAlgorithm pkix.AlgorithmIdentifier	
+	SignatureValue     asn1.BitString	
 }
 
-type tbsCertificate struct {
-	Raw                asn1.RawContent
-	Version            int `asn1:"optional,explicit,default:0,tag:0"`
-	SerialNumber       *big.Int
-	SignatureAlgorithm pkix.AlgorithmIdentifier
-	Issuer             asn1.RawValue
-	Validity           validity
-	Subject            asn1.RawValue
-	PublicKey          publicKeyInfo
-	UniqueId           asn1.BitString   `asn1:"optional,tag:1"`
-	SubjectUniqueId    asn1.BitString   `asn1:"optional,tag:2"`
-	Extensions         []pkix.Extension `asn1:"optional,explicit,tag:3"`
+type tbsCertificate struct { 	//tbs 인증서..?
+	Raw                asn1.RawContent	// 바이트 배열	
+	Version            int `asn1:"optional,explicit,default:0,tag:0"`	
+	SerialNumber       *big.Int		
+	SignatureAlgorithm pkix.AlgorithmIdentifier	
+	Issuer             asn1.RawValue	
+	Validity           validity	
+	Subject            asn1.RawValue	
+	PublicKey          publicKeyInfo	// 공개키 정보
+	UniqueId           asn1.BitString   `asn1:"optional,tag:1"`	
+	SubjectUniqueId    asn1.BitString   `asn1:"optional,tag:2"`	
+	Extensions         []pkix.Extension `asn1:"optional,explicit,tag:3"`	
 }
 
-func isECDSASignedCert(cert *x509.Certificate) bool {
+func isECDSASignedCert(cert *x509.Certificate) bool {	// ECDSA를 통해 서명되었는지 확인
 	return cert.SignatureAlgorithm == x509.ECDSAWithSHA1 ||
 		cert.SignatureAlgorithm == x509.ECDSAWithSHA256 ||
 		cert.SignatureAlgorithm == x509.ECDSAWithSHA384 ||
@@ -73,6 +75,7 @@ func isECDSASignedCert(cert *x509.Certificate) bool {
 // is in low-S. This is checked against the public key of parentCert.
 // If the signature is not in low-S, then a new certificate is generated
 // that is equals to cert but the signature that is in low-S.
+// Low-S를 통해 서명되었는지 확인
 func sanitizeECDSASignedCert(cert *x509.Certificate, parentCert *x509.Certificate) (*x509.Certificate, error) {
 	if cert == nil {
 		return nil, errors.New("certificate must be different from nil")
